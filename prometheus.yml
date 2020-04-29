@@ -1,0 +1,9 @@
+global:
+  scrape_interval:     5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'metrics_example'
+    
+    static_configs:
+    - targets: ['app1:8081']
