@@ -2,11 +2,12 @@
 
 ## Live coding video
 
-https://www.youtube.com/watch?v=6Zgi5nUPf70
+[![YouTube](youtube-screen.png)](
+https://www.youtube.com/watch?v=6Zgi5nUPf70)
 
 ## Running
 
-  docker-compose up
+    docker-compose up
   
 ## Slides
 
