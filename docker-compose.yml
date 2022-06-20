@@ -10,7 +10,6 @@ services:
       - zookeeper
       - kafka
       - googlecloud
-      - prometheus
     environment:
       PUBSUB_EMULATOR_HOST: googlecloud:8085
     ports:
@@ -18,35 +17,31 @@ services:
       - 8081:8081
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.0.1
-    restart: unless-stopped
+    image: confluentinc/cp-zookeeper:latest
+    platform: linux/amd64
     environment:
-      ZOOKEEPER_SERVER_ID: 1
-      ZOOKEEPER_CLIENT_PORT: "2181"
-      ZOOKEEPER_TICK_TIME: "2000"
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
       - 2181:2181
-    logging:
-      driver: none
 
   kafka:
-    image: confluentinc/cp-kafka:5.0.1
+    image: confluentinc/cp-kafka:latest
+    platform: linux/amd64
     depends_on:
       - zookeeper
-    environment:
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
-      - 9092:9092
-    restart: unless-stopped
-    logging:
-      driver: none
+      - 9093:9093
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   googlecloud:
-    image: google/cloud-sdk:228.0.0
+    image: google/cloud-sdk:390.0.0
     entrypoint: gcloud --quiet beta emulators pubsub start --host-port=0.0.0.0:8085 --verbosity=debug --log-http
     ports:
       - 8085:8085
@@ -54,22 +49,3 @@ services:
     logging:
       driver: none
 
-  prometheus:
-    image: prom/prometheus
-    restart: unless-stopped
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - 9090:9090
-    logging:
-      driver: none
-
-
-  grafana:
-    image: grafana/grafana:5.2.4
-    depends_on:
-      - prometheus
-    ports:
-      - 3000:3000
-    logging:
-      driver: none

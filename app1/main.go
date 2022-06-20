@@ -3,12 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
-	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/go-chi/chi"
-	chiMiddleware "github.com/go-chi/chi/middleware"
-	"github.com/pkg/errors"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -16,6 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
+	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/go-chi/chi"
+	chiMiddleware "github.com/go-chi/chi/middleware"
+	"github.com/pkg/errors"
 )
 
 type BookRoomRequest struct {
@@ -164,7 +165,7 @@ func main() {
 	go func() {
 		err := router.Run(ctx)
 		if err != nil {
-		    panic(err)
+			panic(err)
 		}
 	}()
 
