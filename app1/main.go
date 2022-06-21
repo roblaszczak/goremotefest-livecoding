@@ -43,7 +43,7 @@ func (h RoomBookingHandler) Handler(writer http.ResponseWriter, request *http.Re
 
 	err = h.payments.TakePayment(roomPrice)
 	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
+		writer.WriteHeader(http.StatusInternalServerError)
 		log.WithError(err).Error("Failed to take payment")
 		return
 	}
