@@ -5,8 +5,7 @@ go 1.18
 require (
 	github.com/ThreeDotsLabs/watermill v1.0.2
 	github.com/ThreeDotsLabs/watermill-googlecloud v1.0.2
-	github.com/go-chi/chi v4.0.2+incompatible
-	github.com/pkg/errors v0.8.1
+	github.com/go-chi/chi/v5 v5.0.7
 )
 
 require (
@@ -20,6 +19,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/lithammer/shortuuid/v3 v3.0.4 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
+	github.com/pkg/errors v0.8.1 // indirect
 	go.opencensus.io v0.21.0 // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect

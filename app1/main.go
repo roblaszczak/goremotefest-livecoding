@@ -3,20 +3,21 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"errors"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/go-chi/chi"
-	chiMiddleware "github.com/go-chi/chi/middleware"
-	"github.com/pkg/errors"
+	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 type BookRoomRequest struct {
@@ -35,7 +36,7 @@ type RoomBooked struct {
 }
 
 func (h RoomBookingHandler) Handler(writer http.ResponseWriter, request *http.Request) {
-	b, err := ioutil.ReadAll(request.Body)
+	b, err := io.ReadAll(request.Body)
 	if err != nil {
 		panic(err)
 	}
@@ -108,7 +109,7 @@ func (p PaymentsProvider) TakePayment(amount int) error {
 		time.Sleep(time.Second * 5)
 	}
 	if rand.Int31n(3) == 0 {
-		return errors.New("error")
+		return errors.New("random error")
 	}
 
 	log.Println("payment taken")
@@ -131,7 +132,7 @@ func main() {
 
 	h := RoomBookingHandler{publisher}
 
-	router, err := message.NewRouter(
+	watermillRouter, err := message.NewRouter(
 		message.RouterConfig{},
 		watermillLogger,
 	)
@@ -139,7 +140,7 @@ func main() {
 		panic(err)
 	}
 
-	router.AddHandler(
+	watermillRouter.AddHandler(
 		"payments",
 		"bookings",
 		subscriber,
@@ -154,6 +155,9 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, os.Kill)
@@ -161,15 +165,24 @@ func main() {
 		cancel()
 	}()
 
-	go runHTTP(ctx, chiRouter)
 	go func() {
-		err := router.Run(ctx)
+		defer wg.Done()
+		runHTTP(ctx, chiRouter)
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		err := watermillRouter.Run(ctx)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
-	<-ctx.Done()
+	// waiting for routers for proper graceful shutdown
+	wg.Wait()
+	log.Println("Server stopped")
+
 }
 
 func runHTTP(ctx context.Context, handler http.Handler) {
