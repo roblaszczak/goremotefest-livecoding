@@ -4,18 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"time"
 
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill-googlecloud/pkg/googlecloud"
-	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 )
@@ -26,79 +23,31 @@ type BookRoomRequest struct {
 }
 
 type RoomBookingHandler struct {
-	publisher message.Publisher
-}
-
-type RoomBooked struct {
-	RoomID      string `json:"room_id"`
-	GuestsCount int    `json:"guests_count"`
-	Price       int    `json:"price"`
+	payments PaymentsProvider
 }
 
 func (h RoomBookingHandler) Handler(writer http.ResponseWriter, request *http.Request) {
 	b, err := io.ReadAll(request.Body)
 	if err != nil {
-		panic(err)
+		writer.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	req := BookRoomRequest{}
 	err = json.Unmarshal(b, &req)
 	if err != nil {
-		panic(err)
+		writer.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	roomPrice := 42 * req.GuestsCount
 
-	event := RoomBooked{
-		RoomID:      req.RoomID,
-		GuestsCount: req.GuestsCount,
-		Price:       roomPrice,
-	}
-
-	payload, err := json.Marshal(event)
+	err = h.payments.TakePayment(roomPrice)
 	if err != nil {
-		panic(err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		fmt.Println("Failed to take payment")
+		return
 	}
-
-	err = h.publisher.Publish("bookings", message.NewMessage(watermill.NewUUID(), payload))
-	if err != nil {
-		panic(err)
-	}
-}
-
-type PaymentsHandler struct {
-	provider PaymentsProvider
-}
-
-type PaymentTaken struct {
-	RoomID string `json:"room_id"`
-	Price  int    `json:"price"`
-}
-
-func (p PaymentsHandler) Handler(msg *message.Message) (messages []*message.Message, err error) {
-	roomBooked := RoomBooked{}
-
-	err = json.Unmarshal(msg.Payload, &roomBooked)
-	if err != nil {
-		return nil, err
-	}
-
-	err = p.provider.TakePayment(roomBooked.Price)
-	if err != nil {
-		return nil, err
-	}
-
-	event := PaymentTaken{
-		RoomID: roomBooked.RoomID,
-		Price:  roomBooked.Price,
-	}
-
-	payload, err := json.Marshal(event)
-	if err != nil {
-		panic(err)
-	}
-
-	return message.Messages{message.NewMessage(watermill.NewUUID(), payload)}, nil
 }
 
 type PaymentsProvider struct{}
@@ -119,44 +68,15 @@ func (p PaymentsProvider) TakePayment(amount int) error {
 func main() {
 	log.Println("Starting app")
 
-	watermillLogger := watermill.NewStdLogger(true, false)
-
-	subscriber, err := googlecloud.NewSubscriber(googlecloud.SubscriberConfig{}, watermillLogger)
-	if err != nil {
-		panic(err)
+	h := RoomBookingHandler{
+		payments: PaymentsProvider{},
 	}
-	publisher, err := googlecloud.NewPublisher(googlecloud.PublisherConfig{}, watermillLogger)
-	if err != nil {
-		panic(err)
-	}
-
-	h := RoomBookingHandler{publisher}
-
-	watermillRouter, err := message.NewRouter(
-		message.RouterConfig{},
-		watermillLogger,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	watermillRouter.AddHandler(
-		"payments",
-		"bookings",
-		subscriber,
-		"payments",
-		publisher,
-		PaymentsHandler{}.Handler,
-	)
 
 	chiRouter := chi.NewRouter()
 	chiRouter.Use(chiMiddleware.Recoverer)
 	chiRouter.Post("/book", h.Handler)
 
 	ctx, cancel := context.WithCancel(context.Background())
-
-	wg := sync.WaitGroup{}
-	wg.Add(2)
 
 	go func() {
 		c := make(chan os.Signal, 1)
@@ -165,24 +85,7 @@ func main() {
 		cancel()
 	}()
 
-	go func() {
-		defer wg.Done()
-		runHTTP(ctx, chiRouter)
-	}()
-
-	go func() {
-		defer wg.Done()
-
-		err := watermillRouter.Run(ctx)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	// waiting for routers for proper graceful shutdown
-	wg.Wait()
-	log.Println("Server stopped")
-
+	runHTTP(ctx, chiRouter)
 }
 
 func runHTTP(ctx context.Context, handler http.Handler) {
