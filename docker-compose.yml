@@ -1,6 +1,7 @@
 version: '3'
 services:
   app1:
+    container_name: app
     build: .
     volumes:
       - ./app1:/app
@@ -17,6 +18,7 @@ services:
       - 8081:8081
 
   zookeeper:
+    container_name: zk
     image: confluentinc/cp-zookeeper:latest
     platform: linux/amd64
     environment:
@@ -26,6 +28,7 @@ services:
       - 2181:2181
 
   kafka:
+    container_name: kafka
     image: confluentinc/cp-kafka:latest
     platform: linux/amd64
     depends_on:
@@ -34,13 +37,14 @@ services:
       - 9093:9093
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ZOOKEEPER_CONNECT: zk:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   googlecloud:
+    container_name: gcpps
     image: google/cloud-sdk:390.0.0
     entrypoint: gcloud --quiet beta emulators pubsub start --host-port=0.0.0.0:8085 --verbosity=debug --log-http
     ports:
